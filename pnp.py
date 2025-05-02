@@ -82,18 +82,22 @@ class PNP(nn.Module):
     @torch.autocast(device_type='cuda', dtype=torch.float32)
     def get_data(self):
         # load image
-        image = Image.open(self.config["image_path"]).convert('RGB') 
-        image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        image = T.ToTensor()(image).to(self.device)
+        image=None
+        # image = Image.open(self.config["image_path"]).convert('RGB') 
+        # image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
+        # image = T.ToTensor()(image).to(self.device)
         # get noise
         latents_path = os.path.join(self.config["latents_path"], os.path.splitext(os.path.basename(self.config["image_path"]))[0], f'noisy_latents_{self.scheduler.timesteps[0]}.pt')
         noisy_latent = torch.load(latents_path).to(self.device)
+        print(f"def get_data() loaded {latents_path} to noisy_latent")
         return image, noisy_latent
 
     @torch.no_grad()
     def denoise_step(self, x, t):
         # register the time step and features in pnp injection modules
-        source_latents = load_source_latents_t(t, os.path.join(self.config["latents_path"], os.path.splitext(os.path.basename(self.config["image_path"]))[0]))
+        source_latents_path=os.path.join(self.config["latents_path"], os.path.splitext(os.path.basename(self.config["image_path"]))[0])
+        source_latents = load_source_latents_t(t, source_latents_path)
+        print(f"def denoise_step() at t={t} loaded {source_latents_path} to source_latents")
         latent_model_input = torch.cat([source_latents] + ([x] * 2))
 
         register_time(self, t.item())

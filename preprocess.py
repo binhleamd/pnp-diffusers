@@ -97,6 +97,7 @@ class Preprocess(nn.Module):
     @torch.no_grad()
     def ddim_inversion(self, cond, latent, save_path, save_latents=True,
                                 timesteps_to_save=None):
+        print(f'ddim_inversion save to {save_path} is {save_latents}')
         timesteps = reversed(self.scheduler.timesteps)
         with torch.autocast(device_type='cuda', dtype=torch.float32):
             for i, t in enumerate(tqdm(timesteps)):
@@ -124,6 +125,7 @@ class Preprocess(nn.Module):
 
     @torch.no_grad()
     def ddim_sample(self, x, cond, save_path, save_latents=False, timesteps_to_save=None):
+        print(f'ddim_sample save to {save_path} is {save_latents}')
         timesteps = self.scheduler.timesteps
         with torch.autocast(device_type='cuda', dtype=torch.float32):
             for i, t in enumerate(tqdm(timesteps)):
@@ -159,11 +161,12 @@ class Preprocess(nn.Module):
 
         inverted_x = self.inversion_func(cond, latent, save_path, save_latents=not extract_reverse,
                                          timesteps_to_save=timesteps_to_save)
-        latent_reconstruction = self.ddim_sample(inverted_x, cond, save_path, save_latents=extract_reverse,
-                                                 timesteps_to_save=timesteps_to_save)
-        rgb_reconstruction = self.decode_latents(latent_reconstruction)
+        # latent_reconstruction = self.ddim_sample(inverted_x, cond, save_path, save_latents=extract_reverse,
+        #                                          timesteps_to_save=timesteps_to_save)
+        # rgb_reconstruction = self.decode_latents(latent_reconstruction)
 
-        return rgb_reconstruction  # , latent_reconstruction
+        #return rgb_reconstruction  # , latent_reconstruction
+        return None
 
 
 def run(opt):
@@ -196,7 +199,7 @@ def run(opt):
                                          inversion_prompt=opt.inversion_prompt,
                                          extract_reverse=opt.extract_reverse)
 
-    T.ToPILImage()(recon_image[0]).save(os.path.join(save_path, f'recon.jpg'))
+    #T.ToPILImage()(recon_image[0]).save(os.path.join(save_path, f'recon.jpg'))
 
 
 if __name__ == "__main__":
