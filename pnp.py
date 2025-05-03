@@ -20,7 +20,7 @@ class PNP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.device = config["device"]
+        self.device = 'mps' if torch.backends.mps.is_available() else 'cuda'
         sd_version = config["sd_version"]
 
         if sd_version == '2.1':
@@ -35,8 +35,9 @@ class PNP(nn.Module):
         # Create SD models
         print('Loading SD model')
 
-        pipe = StableDiffusionPipeline.from_pretrained(model_key, torch_dtype=torch.float16).to("cuda")
-        pipe.enable_xformers_memory_efficient_attention()
+        pipe = StableDiffusionPipeline.from_pretrained(model_key, torch_dtype=torch.float16).to(self.device)
+        if self.device!='mps':
+            pipe.enable_xformers_memory_efficient_attention()
 
         self.vae = pipe.vae
         self.tokenizer = pipe.tokenizer
@@ -73,23 +74,23 @@ class PNP(nn.Module):
 
     @torch.no_grad()
     def decode_latent(self, latent):
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             latent = 1 / 0.18215 * latent
             img = self.vae.decode(latent).sample
             img = (img / 2 + 0.5).clamp(0, 1)
         return img
 
-    @torch.autocast(device_type='cuda', dtype=torch.float32)
     def get_data(self):
-        # load image
-        image=None
-        # image = Image.open(self.config["image_path"]).convert('RGB') 
-        # image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        # image = T.ToTensor()(image).to(self.device)
-        # get noise
-        latents_path = os.path.join(self.config["latents_path"], os.path.splitext(os.path.basename(self.config["image_path"]))[0], f'noisy_latents_{self.scheduler.timesteps[0]}.pt')
-        noisy_latent = torch.load(latents_path).to(self.device)
-        print(f"def get_data() loaded {latents_path} to noisy_latent")
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
+            # load image
+            image=None
+            # image = Image.open(self.config["image_path"]).convert('RGB') 
+            # image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
+            # image = T.ToTensor()(image).to(self.device)
+            # get noise
+            latents_path = os.path.join(self.config["latents_path"], os.path.splitext(os.path.basename(self.config["image_path"]))[0], f'noisy_latents_{self.scheduler.timesteps[0]}.pt')
+            noisy_latent = torch.load(latents_path).to(self.device)
+            print(f"def get_data() loaded {latents_path} to noisy_latent")
         return image, noisy_latent
 
     @torch.no_grad()
@@ -129,7 +130,7 @@ class PNP(nn.Module):
         edited_img = self.sample_loop(self.eps)
 
     def sample_loop(self, x):
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             for i, t in enumerate(tqdm(self.scheduler.timesteps, desc="Sampling")):
                 x = self.denoise_step(x, t)
 

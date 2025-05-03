@@ -50,12 +50,12 @@ class Preprocess(nn.Module):
             raise ValueError(f'Stable-diffusion version {self.sd_version} not supported.')
 
         # Create model
-        self.vae = AutoencoderKL.from_pretrained(model_key, subfolder="vae", revision="fp16",
+        self.vae = AutoencoderKL.from_pretrained(model_key, subfolder="vae", variant="fp16",
                                                  torch_dtype=torch.float16).to(self.device)
         self.tokenizer = CLIPTokenizer.from_pretrained(model_key, subfolder="tokenizer")
-        self.text_encoder = CLIPTextModel.from_pretrained(model_key, subfolder="text_encoder", revision="fp16",
+        self.text_encoder = CLIPTextModel.from_pretrained(model_key, subfolder="text_encoder", variant="fp16",
                                                           torch_dtype=torch.float16).to(self.device)
-        self.unet = UNet2DConditionModel.from_pretrained(model_key, subfolder="unet", revision="fp16",
+        self.unet = UNet2DConditionModel.from_pretrained(model_key, subfolder="unet", variant="fp16",
                                                          torch_dtype=torch.float16).to(self.device)
         self.scheduler = DDIMScheduler.from_pretrained(model_key, subfolder="scheduler")
         print(f'[INFO] loaded stable diffusion!')
@@ -63,7 +63,8 @@ class Preprocess(nn.Module):
         self.inversion_func = self.ddim_inversion
 
     @torch.no_grad()
-    def get_text_embeds(self, prompt, negative_prompt, device="cuda"):
+    def get_text_embeds(self, prompt, negative_prompt):
+        device=self.device
         text_input = self.tokenizer(prompt, padding='max_length', max_length=self.tokenizer.model_max_length,
                                     truncation=True, return_tensors='pt')
         text_embeddings = self.text_encoder(text_input.input_ids.to(device))[0]
@@ -75,7 +76,7 @@ class Preprocess(nn.Module):
 
     @torch.no_grad()
     def decode_latents(self, latents):
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             latents = 1 / 0.18215 * latents
             imgs = self.vae.decode(latents).sample
             imgs = (imgs / 2 + 0.5).clamp(0, 1)
@@ -88,7 +89,7 @@ class Preprocess(nn.Module):
 
     @torch.no_grad()
     def encode_imgs(self, imgs):
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             imgs = 2 * imgs - 1
             posterior = self.vae.encode(imgs).latent_dist
             latents = posterior.mean * 0.18215
@@ -99,7 +100,7 @@ class Preprocess(nn.Module):
                                 timesteps_to_save=None):
         print(f'ddim_inversion save to {save_path} is {save_latents}')
         timesteps = reversed(self.scheduler.timesteps)
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             for i, t in enumerate(tqdm(timesteps)):
                 cond_batch = cond.repeat(latent.shape[0], 1, 1)
 
@@ -127,7 +128,7 @@ class Preprocess(nn.Module):
     def ddim_sample(self, x, cond, save_path, save_latents=False, timesteps_to_save=None):
         print(f'ddim_sample save to {save_path} is {save_latents}')
         timesteps = self.scheduler.timesteps
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type=self.device, dtype=torch.float16):
             for i, t in enumerate(tqdm(timesteps)):
                     cond_batch = cond.repeat(x.shape[0], 1, 1)
                     alpha_prod_t = self.scheduler.alphas_cumprod[t]
@@ -203,7 +204,7 @@ def run(opt):
 
 
 if __name__ == "__main__":
-    device = 'cuda'
+    device = 'mps' if torch.backends.mps.is_available() else 'cuda'
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str,
                         default='data/horse.jpg')
