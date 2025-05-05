@@ -5,4 +5,5 @@ huggingface_hub[cli]
 xformers
 transformers
 accelerate
+hf_xet
 
