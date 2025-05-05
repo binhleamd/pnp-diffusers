@@ -13,8 +13,12 @@ from diffusers import DDIMScheduler, StableDiffusionPipeline
 
 from pnp_utils import *
 
+from viz import *
+
 # suppress partial model loading warning
 logging.set_verbosity_error()
+
+first_run=True
 
 class PNP(nn.Module):
     def __init__(self, config):
@@ -107,6 +111,29 @@ class PNP(nn.Module):
         text_embed_input = torch.cat([self.pnp_guidance_embeds, self.text_embeds], dim=0)
 
         # apply the denoising network
+
+        global first_run
+        if first_run:
+            first_run=False
+            
+            writer=SummaryWriter('pnp/unet')
+            writer.add_graph(self.unet, [latent_model_input, t, text_embed_input], use_strict_trace=False)
+            writer.close()
+
+            with open('model_architecture.txt', 'w') as f:
+                original_stdout = sys.stdout
+                sys.stdout = f
+            
+                display_model_summary(self.unet, {latent_model_input, t}, {'encoder_hidden_states':text_embed_input})
+                print_network_structure(self.unet)
+
+                sys.stdout = original_stdout
+
+            print("Model architect saved as 'model_architecture.txt'")
+
+            # visualize_network_using_torchviz(self.unet, {latent_model_input, t}, {'encoder_hidden_states':text_embed_input}).render('model_architecture', format='png', cleanup=True)
+            # print("Torchviz visualization saved as 'model_architecture.png'")  
+
         noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embed_input)['sample']
 
         # perform guidance

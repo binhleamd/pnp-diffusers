@@ -21,7 +21,7 @@ def print_network_structure(model, indent=''):
         # Recursively print children with increased indentation
         print_network_structure(child, indent + '│  ')
 
-def display_model_summary(model, input_size=(1, 3, 224, 224)):
+def display_model_summary(model, args=None, kwargs=None):
     """
     Display a text-based summary of the model including number of parameters and layer details.
     
@@ -40,20 +40,19 @@ def display_model_summary(model, input_size=(1, 3, 224, 224)):
         
     # Try to compute output shape if possible
     try:
-        x = torch.randn(input_size)
         model.eval()
         with torch.no_grad():
-            out = model(x)
+            out=model(*args, **kwargs)
         
         if isinstance(out, torch.Tensor):
-            print(f"Input shape: {input_size}")
+            #print(f"Input shape: {tuple(out.shape)}")
             print(f"Output shape: {tuple(out.shape)}")
         else:
             print("Model has multiple or non-tensor outputs")
     except Exception as e:
         print(f"Couldn't compute output shape: {e}")
 
-def visualize_network_using_torchviz(model, input_size=(1, 3, 224, 224)):
+def visualize_network_using_torchviz(model, args=None, kwargs=None):
     """
     Visualize a PyTorch network using torchviz.
     
@@ -64,8 +63,7 @@ def visualize_network_using_torchviz(model, input_size=(1, 3, 224, 224)):
     Returns:
         GraphViz dot graph
     """
-    x = torch.randn(input_size).requires_grad_(True)
-    y = model(x)
+    y=model(*args, **kwargs)
     
     # If model outputs a tuple/list, use the first element
     if isinstance(y, tuple) or isinstance(y, list):
