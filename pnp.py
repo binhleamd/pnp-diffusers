@@ -13,7 +13,7 @@ from diffusers import DDIMScheduler, StableDiffusionPipeline
 
 from pnp_utils import *
 
-from viz import *
+#from viz import *
 
 # suppress partial model loading warning
 logging.set_verbosity_error()
@@ -40,7 +40,7 @@ class PNP(nn.Module):
         print('Loading SD model')
 
         pipe = StableDiffusionPipeline.from_pretrained(model_key, torch_dtype=torch.float16).to(self.device)
-        if self.device!='mps':
+        if self.device=='cuda' and not torch.version.hip:
             pipe.enable_xformers_memory_efficient_attention()
 
         self.vae = pipe.vae
@@ -112,24 +112,24 @@ class PNP(nn.Module):
 
         # apply the denoising network
 
-        global first_run
-        if first_run:
-            first_run=False
+        # global first_run
+        # if first_run:
+        #     first_run=False
             
-            writer=SummaryWriter('pnp/unet')
-            writer.add_graph(self.unet, [latent_model_input, t, text_embed_input], use_strict_trace=False)
-            writer.close()
+        #     writer=SummaryWriter('pnp/unet')
+        #     writer.add_graph(self.unet, [latent_model_input, t, text_embed_input], use_strict_trace=False)
+        #     writer.close()
 
-            with open('model_architecture.txt', 'w') as f:
-                original_stdout = sys.stdout
-                sys.stdout = f
+        #     with open('model_architecture.txt', 'w') as f:
+        #         original_stdout = sys.stdout
+        #         sys.stdout = f
             
-                display_model_summary(self.unet, {latent_model_input, t}, {'encoder_hidden_states':text_embed_input})
-                print_network_structure(self.unet)
+        #         display_model_summary(self.unet, {latent_model_input, t}, {'encoder_hidden_states':text_embed_input})
+        #         print_network_structure(self.unet)
 
-                sys.stdout = original_stdout
+        #         sys.stdout = original_stdout
 
-            print("Model architect saved as 'model_architecture.txt'")
+        #     print("Model architect saved as 'model_architecture.txt'")
 
             # visualize_network_using_torchviz(self.unet, {latent_model_input, t}, {'encoder_hidden_states':text_embed_input}).render('model_architecture', format='png', cleanup=True)
             # print("Torchviz visualization saved as 'model_architecture.png'")  
